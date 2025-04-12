@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>خريطة المدن حسب الـ Region</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h2 {
+      color: #333;
+    }
+
+    #address {
+      width: 300px;
+      padding: 10px;
+      font-size: 16px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .info-box {
+      margin-top: 15px;
+      padding: 15px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      display: inline-block;
+      text-align: right;
+      direction: rtl;
+    }
+
+    #map {
+      height: 600px;
+      width: 100%;
+      margin-top: 20px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h2>خريطة المدن حسب الـ Region</h2>
+  <input type="text" id="address" placeholder="اكتب العنوان هنا">
+  <button onclick="geocodeAddress()">اقتراح الـ Region</button>
+  <div class="info-box" id="result"></div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script>
+    const cities = [
+      { city: "Ataka District", region: "Suez", lat: 29.9668, lng: 32.5498 },
+      { city: "El-Arbeen District", region: "Suez", lat: 29.9737, lng: 32.5482 },
+      { city: "Suez", region: "Suez", lat: 29.9668, lng: 32.5498 },
+      { city: "Akhmem", region: "Sohag", lat: 26.5621, lng: 31.7457 },
+      { city: "Bardes", region: "Sohag", lat: 26.4113, lng: 31.6895 },
+      { city: "Cairo", region: "Cairo", lat: 30.033333, lng: 31.233334 },
+      { city: "Giza", region: "Giza", lat: 30.013056, lng: 31.208853 },
+      { city: "Alexandria", region: "Alexandria", lat: 31.205753, lng: 29.924526 },
+      { city: "Luxor", region: "Luxor", lat: 25.687243, lng: 32.639637 },
+      { city: "Asyut", region: "Asyut", lat: 27.180134, lng: 31.189283 },
+      { city: "Mansoura", region: "Dakahlia", lat: 31.037933, lng: 31.381523 },
+      { city: "Damietta", region: "Damietta", lat: 31.417540, lng: 31.814444 },
+      { city: "Sohag", region: "Sohag", lat: 26.549999, lng: 31.700001 },
+      { city: "6th of October City", region: "Giza", lat: 29.952654, lng: 30.921919 },
+      { city: "Shubra El Kheima", region: "Qalyubia", lat: 30.128611, lng: 31.242222 }
+    ];
+
+    const regionColors = {
+      "Suez": "red",
+      "Sohag": "blue",
+      "Cairo": "green",
+      "Giza": "orange",
+      "Alexandria": "purple",
+      "Luxor": "brown",
+      "Asyut": "teal",
+      "Dakahlia": "darkgreen",
+      "Damietta": "navy",
+      "Qalyubia": "magenta"
+    };
+
+    const map = L.map('map').setView([26.8, 31.5], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+    }).addTo(map);
+
+    cities.forEach(({ city, region, lat, lng }) => {
+      const color = regionColors[region] || 'gray';
+      L.circleMarker([lat, lng], {
+        radius: 8,
+        color,
+        fillColor: color,
+        fillOpacity: 0.7
+      }).addTo(map).bindPopup(`<strong>${city}</strong><br>${region}`);
+    });
+
+    let userMarker = null;
+
+    function geocodeAddress() {
+      const input = document.getElementById('address').value;
+      const resultBox = document.getElementById('result');
+
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            const userLat = parseFloat(data[0].lat);
+            const userLng = parseFloat(data[0].lon);
+
+            map.setView([userLat, userLng], 12);
+
+            if (userMarker) {
+              map.removeLayer(userMarker);
+            }
+
+            userMarker = L.marker([userLat, userLng]).addTo(map).bindPopup("عنوانك").openPopup();
+
+            let closestCity = null;
+            let minDist = Infinity;
+            cities.forEach(city => {
+              const dist = Math.sqrt(Math.pow(userLat - city.lat, 2) + Math.pow(userLng - city.lng, 2));
+              if (dist < minDist) {
+                minDist = dist;
+                closestCity = city;
+              }
+            });
+
+            if (closestCity) {
+              resultBox.innerHTML = `أقرب مدينة: <strong>${closestCity.city}</strong><br>الـRegion: <strong>${closestCity.region}</strong>`;
+            } else {
+              resultBox.innerHTML = "لم يتم العثور على مدينة قريبة.";
+            }
+          } else {
+            resultBox.innerHTML = "لم يتم العثور على عنوان. تأكد من صحة الإدخال.";
+          }
+        })
+        .catch(err => {
+          resultBox.innerHTML = "حدث خطأ أثناء البحث عن العنوان.";
+        });
+    }
+  </script>
+</body>
+</html>
